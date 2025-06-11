@@ -61,8 +61,8 @@ func New() Service {
 		Addr:         os.Getenv("REDIS_ADDR"),
 		Password:     os.Getenv("REDIS_PASSWORD"),
 		DB:           0,
-		PoolSize:     200, // Increased pool size
-		MinIdleConns: 50,  // More idle connections
+		PoolSize:     200,
+		MinIdleConns: 50, 
 		MaxRetries:   maxRetries,
 		DialTimeout:  5 * time.Second,
 		ReadTimeout:  3 * time.Second,
@@ -129,7 +129,6 @@ func (s *service) InitializeSale(ctx context.Context, saleID string, totalItems 
 }
 
 func (s *service) ReserveItem(ctx context.Context, saleID, userID, itemID string) (string, error) {
-	// The Lua script is now simpler as it doesn't need shard logic.
 	luaScript := `
 		local inventory_key = KEYS[1]
 		local user_key = KEYS[2]
@@ -151,11 +150,9 @@ func (s *service) ReserveItem(ctx context.Context, saleID, userID, itemID string
 
 		return "success"
 	`
-	// The inventory key is now simple and singular.
 	inventoryKey := fmt.Sprintf("sale:%s:inventory", saleID)
 	userKey := fmt.Sprintf("sale:%s:user_purchases", saleID)
 
-	// We no longer pass a shard_id to the script.
 	result, err := s.client.Eval(ctx, luaScript, []string{inventoryKey, userKey}, userID, 10).Result()
 	if err != nil {
 		return "", err
@@ -169,7 +166,6 @@ func (s *service) ReserveItem(ctx context.Context, saleID, userID, itemID string
 		return "", fmt.Errorf("sold out")
 	}
 
-	// This part remains the same.
 	code := s.generateCode()
 	checkoutInfo := CheckoutInfo{
 		UserID:    userID,
@@ -183,7 +179,6 @@ func (s *service) ReserveItem(ctx context.Context, saleID, userID, itemID string
 
 	err = s.client.Set(ctx, codeKey, data, codeExpiryTime).Err()
 	if err != nil {
-		// If setting the code fails, we must return the inventory.
 		s.client.Incr(ctx, inventoryKey)
 		return "", err
 	}
@@ -282,7 +277,6 @@ func (s *service) MarkItemAsSold(ctx context.Context, saleID string, itemNumber 
 		return fmt.Errorf("itemNumber must be positive")
 	}
 	key := fmt.Sprintf("sale:%s:sold_bitmap", saleID)
-	// Redis bitmaps are 0-indexed, so we subtract 1 from the item number.
 	offset := int64(itemNumber - 1)
 	return s.client.SetBit(ctx, key, offset, 1).Err()
 }
@@ -296,7 +290,6 @@ func (s *service) SetShowcaseInfo(ctx context.Context, saleID string, info *Show
 	return s.client.Set(ctx, key, data, time.Hour+10*time.Minute).Err()
 }
 
-// GetShowcaseInfo retrieves the minimal showcase data.
 func (s *service) GetShowcaseInfo(ctx context.Context, saleID string) (*ShowcaseInfo, error) {
 	key := fmt.Sprintf("sale:%s:showcase_ids", saleID)
 	data, err := s.client.Get(ctx, key).Result()
