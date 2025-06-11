@@ -6,42 +6,72 @@ services:
       target: prod
     restart: unless-stopped
     ports:
-      - ${PORT}:${PORT}
+      - "${PORT:-8080}:8080"
     environment:
-      APP_ENV: ${APP_ENV}
-      PORT: ${PORT}
-      BLUEPRINT_DB_HOST: ${BLUEPRINT_DB_HOST}
-      BLUEPRINT_DB_PORT: ${BLUEPRINT_DB_PORT}
-      BLUEPRINT_DB_DATABASE: ${BLUEPRINT_DB_DATABASE}
-      BLUEPRINT_DB_USERNAME: ${BLUEPRINT_DB_USERNAME}
-      BLUEPRINT_DB_PASSWORD: ${BLUEPRINT_DB_PASSWORD}
-      BLUEPRINT_DB_SCHEMA: ${BLUEPRINT_DB_SCHEMA}
+      APP_ENV: ${APP_ENV:-local}
+      PORT: ${PORT:-8080}
+      REDIS_ADDR: ${REDIS_ADDR:-keydb:6379} # Points to the keydb service
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      BLUEPRINT_DB_HOST: ${BLUEPRINT_DB_HOST:-psql_bp}
+      BLUEPRINT_DB_PORT: ${BLUEPRINT_DB_PORT:-5432}
+      BLUEPRINT_DB_DATABASE: ${BLUEPRINT_DB_DATABASE:-blueprint}
+      BLUEPRINT_DB_USERNAME: ${BLUEPRINT_DB_USERNAME:-melkey}
+      BLUEPRINT_DB_PASSWORD: ${BLUEPRINT_DB_PASSWORD:-password1234}
+      BLUEPRINT_DB_SCHEMA: ${BLUEPRINT_DB_SCHEMA:-public}
     depends_on:
       psql_bp:
         condition: service_healthy
+      keydb: # <-- Updated dependency
+        condition: service_healthy
     networks:
-      - blueprint
-  psql_bp:
-    image: postgres:latest
+      - flash_sale_network
+
+  # --- This is the new KeyDB service ---
+  keydb:
+    image: eqalpha/keydb:latest
     restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${BLUEPRINT_DB_DATABASE}
-      POSTGRES_USER: ${BLUEPRINT_DB_USERNAME}
-      POSTGRES_PASSWORD: ${BLUEPRINT_DB_PASSWORD}
+    # Enable multi-threading for high performance
+    command: keydb-server /etc/keydb/keydb.conf --server-threads 2
     ports:
-      - "${BLUEPRINT_DB_PORT}:5432"
+      - "6379:6379"
     volumes:
-      - psql_volume_bp:/var/lib/postgresql/data
+      - keydb_data:/data
+    networks:
+      - flash_sale_network
     healthcheck:
-      test: ["CMD-SHELL", "sh -c 'pg_isready -U ${BLUEPRINT_DB_USERNAME} -d ${BLUEPRINT_DB_DATABASE}'"]
-      interval: 5s
+      # This works because the KeyDB image includes redis-cli
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
       timeout: 5s
       retries: 3
-      start_period: 15s
+      start_period: 10s
+
+  psql_bp:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${BLUEPRINT_DB_DATABASE:-blueprint}
+      POSTGRES_USER: ${BLUEPRINT_DB_USERNAME:-melkey}
+      POSTGRES_PASSWORD: ${BLUEPRINT_DB_PASSWORD:-password1234}
+    ports:
+      - "${BLUEPRINT_DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     networks:
-      - blueprint
+      - flash_sale_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${BLUEPRINT_DB_USERNAME:-melkey} -d ${BLUEPRINT_DB_DATABASE:-blueprint}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
 volumes:
-  psql_volume_bp:
+  postgres_data:
+    driver: local
+  keydb_data: # <-- New volume for KeyDB
+    driver: local
+
 networks:
-  blueprint:
+  flash_sale_network:
+    driver: bridge

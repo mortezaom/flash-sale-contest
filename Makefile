@@ -1,49 +1,33 @@
-# Simple Makefile for a Go project
+.PHONY: build run docker-build docker-run clean setup-docker
 
-# Build the application
-all: build test
+# Local development
+setup-local:
+	chmod +x scripts/setup-local.sh
+	./scripts/setup-local.sh
 
-build:
-	@echo "Building..."
-	
-	
-	@go build -o main.exe cmd/api/main.go
+run-local: setup-local
+	go run cmd/api/main.go
 
-# Run the application
-run:
-	@go run cmd/api/main.go
-# Create DB container
+# Docker development
+setup-docker:
+	chmod +x scripts/setup-docker.sh
+	./scripts/setup-docker.sh
+
 docker-run:
-	@docker compose up --build
+	docker compose up --build
 
-# Shutdown DB container
-docker-down:
-	@docker compose down
+docker-stop:
+	docker compose down
 
-# Test the application
-test:
-	@echo "Testing..."
-	@go test ./... -v
-# Integrations Tests for the application
-itest:
-	@echo "Running integration tests..."
-	@go test ./internal/database -v
+docker-clean:
+	docker compose down -v
+	docker system prune -f
 
-# Clean the binary
+# Build
+build:
+	go build -o bin/main cmd/api/main.go
+
+# Clean
 clean:
-	@echo "Cleaning..."
-	@rm -f main
-
-# Live Reload
-watch:
-	@powershell -ExecutionPolicy Bypass -Command "if (Get-Command air -ErrorAction SilentlyContinue) { \
-		air; \
-		Write-Output 'Watching...'; \
-	} else { \
-		Write-Output 'Installing air...'; \
-		go install github.com/air-verse/air@latest; \
-		air; \
-		Write-Output 'Watching...'; \
-	}"
-
-.PHONY: all build run test clean watch docker-run docker-down itest
+	rm -rf bin/
+	docker compose down -v
