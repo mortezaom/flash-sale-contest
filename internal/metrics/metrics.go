@@ -16,7 +16,7 @@ type Metrics struct {
 	SoldOutErrors     int64
 	UserLimitErrors   int64
 	CodeInvalidErrors int64
-	Panics int64
+	Panics            int64
 
 	AvgCheckoutLatency int64 // nanoseconds
 	AvgPurchaseLatency int64 // nanoseconds
@@ -187,6 +187,7 @@ func (m *Metrics) GetStats() map[string]interface{} {
 		"purchase_success_rate":   purchaseSuccessRate,
 		"sold_out_errors":         atomic.LoadInt64(&m.SoldOutErrors),
 		"user_limit_errors":       atomic.LoadInt64(&m.UserLimitErrors),
+		"panics":                  atomic.LoadInt64(&m.Panics),
 		"code_invalid_errors":     atomic.LoadInt64(&m.CodeInvalidErrors),
 		"total_items_sold":        atomic.LoadInt64(&m.TotalItemsSold),
 		"active_users_5min":       activeUserCount,
