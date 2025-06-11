@@ -27,7 +27,12 @@ func (s *Server) RegisterRoutes() http.Handler {
 	mux.HandleFunc("POST /checkout", s.checkoutHandler)
 	mux.HandleFunc("POST /purchase", s.purchaseHandler)
 
-	return s.corsMiddleware(mux)
+	handler := s.corsMiddleware(mux)
+	handler = s.timeoutMiddleware(handler)
+	handler = s.recoveryMiddleware(handler)
+	handler = s.rateLimitMiddleware(handler)
+
+	return handler
 }
 
 func (s *Server) corsMiddleware(next http.Handler) http.Handler {

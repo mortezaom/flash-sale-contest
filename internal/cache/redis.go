@@ -29,6 +29,7 @@ type CheckoutInfo struct {
 type Service interface {
 	Health() map[string]string
 	Close() error
+	GetClient() *redis.Client
 	InitializeSale(ctx context.Context, saleID string, totalItems int) error
 	ReserveItem(ctx context.Context, saleID, userID, itemID string) (string, error)
 	VerifyAndPurchase(ctx context.Context, code string) (*CheckoutInfo, error)
@@ -77,6 +78,10 @@ func New() Service {
 	log.Println("Connected to Redis with optimized settings")
 	cacheInstance = &service{client: rdb}
 	return cacheInstance
+}
+
+func (s *service) GetClient() *redis.Client {
+	return s.client
 }
 
 func (s *service) Health() map[string]string {

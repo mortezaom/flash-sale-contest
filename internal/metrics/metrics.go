@@ -16,6 +16,7 @@ type Metrics struct {
 	SoldOutErrors     int64
 	UserLimitErrors   int64
 	CodeInvalidErrors int64
+	Panics int64
 
 	AvgCheckoutLatency int64 // nanoseconds
 	AvgPurchaseLatency int64 // nanoseconds
@@ -30,6 +31,7 @@ type Metrics struct {
 
 type Service interface {
 	IncrementCheckoutRequests()
+	IncrementPanic()
 	IncrementCheckoutSuccess()
 	IncrementCheckoutFailed()
 	IncrementPurchaseRequests()
@@ -77,6 +79,10 @@ func (m *Metrics) IncrementCheckoutFailed() {
 
 func (m *Metrics) IncrementPurchaseRequests() {
 	atomic.AddInt64(&m.PurchaseRequests, 1)
+}
+
+func (m *Metrics) IncrementPanic() {
+	atomic.AddInt64(&m.Panics, 1)
 }
 
 func (m *Metrics) IncrementPurchaseSuccess() {
